@@ -1,0 +1,151 @@
+---
+layout: page
+width: expand
+---
+<div class="uk-section">
+    <div class="uk-container uk-container-xlarge">
+
+        <h1 class="uk-article-title">OpenAPI Explode</h1>
+        <p>I am regularly finding OpenAPIs that are too big and should be broken down into smaller parts, something that can be cumbersome and time consuming to do, so I created this tool to help me get this done. </p>
+        <h2>OpenAPI Input</h2> 
+        <input type="text" id="format" style="width: 100%;"> 
+        <textarea style="width: 100%; height: 250px; border: 5px solid #000;" id="openapi-input" onchange="updateOpenAPI();"></textarea>
+        <h2>Paths</h2>    
+        <div id="paths"></div>
+        <h2>OpenAPIs</h2>  
+        <textarea style="width: 100%; height: 50px; border: 5px solid #000;" id="openapi-base-paths" onchange="explodeOpenAPIs();"></textarea>
+        <div id="openapis"></div>                
+        <script>
+            function saveOpenAPI(openapi){
+                
+                var format = document.getElementById('format').value;
+                if(format=='json'){
+                    document.getElementById('openapi-output').value = JSON.stringify(openapi, null, 2); 
+                }
+                if(format=='yaml'){
+                    document.getElementById('openapi-output').value = "---\r\n" + jsyaml.dump(openapi) + "---"; 
+                }                
+            }
+
+            function parseOpenAPI(){
+                var openapi = document.getElementById('openapi-input').value;
+
+                var is_yaml = 0;
+                var is_json = 0;
+
+                try {
+                    var openapi = jsyaml.load(openapi);
+                    console.log(openapi);
+                    is_yaml = 1;
+                    is_json = 0;
+                } catch (error) {
+                    console.log(error);
+                }
+                try {
+                    var openapi = JSON.parse(openapi);
+                    is_json = 1;
+                    is_yaml = 0;
+                } catch (error) {}
+
+                if(is_json==1){
+                    document.getElementById("format").value = "json";
+                }
+                else{
+                    document.getElementById("format").value = "yaml";  
+                }
+                return openapi;                
+            }
+          
+            function updateOpenAPI(){
+
+                var openapi = parseOpenAPI();
+                //console.log(openapi)
+
+                var html = '';
+                if(openapi.paths){
+                    var operation_counter = 1;
+                    for (const [path, method] of Object.entries(openapi.paths)) {
+           
+                        html += path + "<br>";
+
+                        }                    
+                    }
+
+                document.getElementById("paths").innerHTML = html;
+                
+                //saveOpenAPI(openapi);
+
+            }
+
+            function explodeOpenAPIs(){
+
+                var openapi = parseOpenAPI();                            
+                var paths = openapi.paths;
+                var schemas = openapi.components.schemas;
+
+                var base_paths = document.getElementById("openapi-base-paths").value;
+                base_paths = base_paths.split(",");
+
+                var html = '';
+                var base_path_counter = 1;
+                for (let i = 0; i < base_paths.length; i++) {
+
+                    var openapi_template = openapi;
+                    openapi_template.paths = {};
+                    openapi_template.components.schemas = {};                
+
+                    var base_path = base_paths[i];
+                    base_name = base_path.replace("/v1/","");
+                    base_name = base_name.replace("/"," ");
+                    base_name = base_name.replace("_"," ");
+
+                    html += '<h3>' + base_name + "</h3>";
+                    openapi_template.info.title = base_name;
+                    openapi_template.info.description = "Needs description.";
+
+                    var path_counter = 1;
+                    for (const [path, method] of Object.entries(paths)) {   
+                        if(path.includes(base_path)){
+                            
+                            openapi_template.paths[path] = method;
+
+                            for (const [verb, operation] of Object.entries(method)) {   
+
+                                if(operation.responses['200'].content['application/json']){
+                                    if(operation.responses['200'].content['application/json'].schema){
+                                        if(operation.responses['200'].content['application/json'].schema['$ref']){
+                                            var ref = operation.responses['200'].content['application/json'].schema['$ref'];                                            
+                                            schema = ref.replace("#/components/schemas/","");
+                                            console.log("1: " + schema);
+                                            openapi_template.components.schemas[schema] = schemas[schema];
+                                        }
+                                    }
+                                }
+
+                                if(operation.responses['default'].content['application/json']){
+                                    if(operation.responses['default'].content['application/json'].schema){
+                                        if(operation.responses['default'].content['application/json'].schema['$ref']){
+                                            var ref = operation.responses['default'].content['application/json'].schema['$ref'];
+                                            schema = ref.replace("#/components/schemas/","");
+                                            console.log("2: " + schema);
+                                            openapi_template.components.schemas[schema] = schemas[schema];
+                                        }                                
+                                    }
+                                }
+
+                                }
+
+                            path_counter++;
+                            }
+                        }
+
+                    html += '<textarea style="width: 100%; height: 50px; border: 5px solid #000;" id="openapi-' + base_path_counter + '">---\r\n' + jsyaml.dump(openapi_template) + '---</textarea>';
+                    base_path_counter++; 
+                    }
+
+                document.getElementById("openapis").innerHTML = html;
+
+                }            
+        </script>
+    </div>
+</div>

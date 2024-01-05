@@ -1,0 +1,180 @@
+---
+layout: page
+width: expand
+---
+<div class="uk-section">
+    <div class="uk-container uk-container-xlarge">
+
+        <h1 class="uk-article-title">OpenAPI Explode</h1>
+        <p>I am regularly finding OpenAPIs that are too big and should be broken down into smaller parts, something that can be cumbersome and time consuming to do, so I created this tool to help me get this done. </p>
+        <h2>OpenAPI Input</h2> 
+        <input type="text" id="format" style="width: 100%;"> 
+        <textarea style="width: 100%; height: 250px; border: 5px solid #000;" id="openapi-input" onchange="updateOpenAPI();"></textarea>
+        <h2>OpenAPI Output</h2>
+        <textarea style="width: 100%; height: 250px; border: 5px solid #000;" id="openapi-output"></textarea>        
+        
+        <div id="operations"></div>
+        <script>
+            function saveOpenAPI(openapi){
+                
+                var format = document.getElementById('format').value;
+                if(format=='json'){
+                    document.getElementById('openapi-output').value = JSON.stringify(openapi, null, 2); 
+                }
+                if(format=='yaml'){
+                    document.getElementById('openapi-output').value = "---\r\n" + jsyaml.dump(openapi) + "---"; 
+                }                
+            }
+
+            function parseOpenAPI(){
+                var openapi = document.getElementById('openapi-input').value;
+
+                var is_yaml = 0;
+                var is_json = 0;
+
+                try {
+                    var openapi = jsyaml.load(openapi);
+                    console.log(openapi);
+                    is_yaml = 1;
+                    is_json = 0;
+                } catch (error) {
+                    console.log(error);
+                }
+                try {
+                    var openapi = JSON.parse(openapi);
+                    is_json = 1;
+                    is_yaml = 0;
+                } catch (error) {}
+
+                if(is_json==1){
+                    document.getElementById("format").value = "json";
+                }
+                else{
+                    document.getElementById("format").value = "yaml";  
+                }
+                return openapi;                
+            }
+          
+            function updateOpenAPI(){
+
+                var openapi = parseOpenAPI();
+                //console.log(openapi)
+
+                var html = '';
+                if(openapi.paths){
+                    var operation_counter = 1;
+                    for (const [path, method] of Object.entries(openapi.paths)) {
+                        
+                        for (const [verb, operation] of Object.entries(method)) {
+                            
+                            //console.log(verb);
+                            if(verb == 'get' || verb == 'post' || verb == 'patch' || verb == 'put' || verb == 'delete'){
+
+                                // REQUEST BODY
+                                if(operation.requestBody) {
+
+                                    //console.log("status: " + status);
+
+                                    if(operation.requestBody.content){
+
+                                        for (const [mediaType, content] of Object.entries(operation.requestBody.content)) {
+
+                                            //console.log("mediaType: " + mediaType);
+                                            
+                                            if(content.schema['$ref']){
+                                                //console.log("ALREADY!!");
+                                            }
+                                            if(content.schema['properties']){
+
+                                                console.log(content.schema['type']);
+                                                console.log(content.schema['title']);
+                                                console.log(content.schema['properties']);
+
+                                                var this_object = {};
+                                                this_object.type = content.schema['type'];
+                                                if(content.schema['required']){
+                                                    this_object.required = content.schema['required'];
+                                                }
+                                                this_object.properties = content.schema['properties'];
+
+                                                openapi.components.schemas[content.schema['title']] = this_object;
+
+                                                openapi.paths[path][verb].requestBody.content[mediaType].schema['$ref'] = '#/components/schemas/' + content.schema['title'];
+
+                                                delete openapi.paths[path][verb].requestBody.content[mediaType].schema.type;
+                                                delete openapi.paths[path][verb].requestBody.content[mediaType].schema.required;
+                                                delete openapi.paths[path][verb].requestBody.content[mediaType].schema.title;
+                                                delete openapi.paths[path][verb].requestBody.content[mediaType].schema.properties;
+                                            
+                                            }                                    
+                                            else{
+                                                //console.log('NOPE!!');
+                                            }
+
+                                        }  
+                                    }                              
+
+                                }
+
+                                // RESPONSE
+                                var responses = operation.responses;
+                                for (const [status, response] of Object.entries(responses)) {
+
+                                    //console.log("status: " + status);
+
+                                    if(response.content){
+
+                                    for (const [mediaType, content] of Object.entries(response.content)) {
+
+                                        //console.log("mediaType: " + mediaType);
+                                        
+                                        if(content.schema['$ref']){
+                                            //console.log("ALREADY!!");
+                                        }
+                                        if(content.schema['properties']){
+
+                                            console.log(content.schema['type']);
+                                            console.log(content.schema['title']);
+                                            console.log(content.schema['properties']);
+
+                                            var this_object = {};
+                                            this_object.type = content.schema['type'];
+
+                                            if(content.schema['required']){
+                                                    this_object.required = content.schema['required'];
+                                                }
+
+                                            this_object.properties = content.schema['properties'];
+
+                                            openapi.components.schemas[content.schema['title']] = this_object;
+
+                                            openapi.paths[path][verb].responses[status].content[mediaType].schema['$ref'] = '#/components/schemas/' + content.schema['title'];
+
+                                            delete openapi.paths[path][verb].responses[status].content[mediaType].schema.type;
+                                            delete openapi.paths[path][verb].responses[status].content[mediaType].schema.required;
+                                            delete openapi.paths[path][verb].responses[status].content[mediaType].schema.title;
+                                            delete openapi.paths[path][verb].responses[status].content[mediaType].schema.properties;
+                                        
+                                        }                                    
+                                        else{
+                                            //console.log('NOPE!!');
+                                        }
+
+                                        }  
+                                    }                              
+
+                                }
+
+                                operation_counter++;
+                            
+                            }
+                        }                    
+                    }
+                }
+                
+                saveOpenAPI(openapi);
+
+            }
+        </script>
+    </div>
+</div>
