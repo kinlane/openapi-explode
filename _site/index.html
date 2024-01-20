@@ -345,27 +345,36 @@ function searchResults(form) {
                             
                             openapi_template.paths[path] = method;
 
-                            for (const [verb, operation] of Object.entries(method)) {   
+                            for (const [verb, operation] of Object.entries(method)) {  
+                                
+                                if(verb!='servers' && verb!='description' && verb!='x-twilio'){
 
-                                if(operation.responses['200'].content['application/json']){
-                                    if(operation.responses['200'].content['application/json'].schema){
-                                        if(operation.responses['200'].content['application/json'].schema['$ref']){
-                                            var ref = operation.responses['200'].content['application/json'].schema['$ref'];                                            
-                                            schema = ref.replace("#/components/schemas/","");
-                                            console.log("1: " + schema);
-                                            openapi_template.components.schemas[schema] = schemas[schema];
+                                    //console.log(verb);
+                                    //console.log(operation);
+
+                                    if(operation.responses['200']){
+                                        if(operation.responses['200'].content['application/json']){
+                                            if(operation.responses['200'].content['application/json'].schema){
+                                                if(operation.responses['200'].content['application/json'].schema['$ref']){
+                                                    var ref = operation.responses['200'].content['application/json'].schema['$ref'];                                            
+                                                    schema = ref.replace("#/components/schemas/","");
+                                                    //console.log("1: " + schema);
+                                                    openapi_template.components.schemas[schema] = schemas[schema];
+                                                }
+                                            }
                                         }
                                     }
-                                }
-
-                                if(operation.responses['default'].content['application/json']){
-                                    if(operation.responses['default'].content['application/json'].schema){
-                                        if(operation.responses['default'].content['application/json'].schema['$ref']){
-                                            var ref = operation.responses['default'].content['application/json'].schema['$ref'];
-                                            schema = ref.replace("#/components/schemas/","");
-                                            console.log("2: " + schema);
-                                            openapi_template.components.schemas[schema] = schemas[schema];
-                                        }                                
+                                    if(operation.responses['default']){
+                                        if(operation.responses['default'].content['application/json']){
+                                            if(operation.responses['default'].content['application/json'].schema){
+                                                if(operation.responses['default'].content['application/json'].schema['$ref']){
+                                                    var ref = operation.responses['default'].content['application/json'].schema['$ref'];
+                                                    schema = ref.replace("#/components/schemas/","");
+                                                    //console.log("2: " + schema);
+                                                    openapi_template.components.schemas[schema] = schemas[schema];
+                                                }                                
+                                            }
+                                        }
                                     }
                                 }
 
